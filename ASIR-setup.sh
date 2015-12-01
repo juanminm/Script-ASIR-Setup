@@ -3,7 +3,9 @@
 ## Este script generará multiples scripts que contendran los comandos para tener
 ## todos los servidores con sus servicios y configuraciones.
 
-## PARAMETROS ##################################################################
+## PARAMETROS GLOBALES #########################################################
+read -p "Nombre de dominio LDAP (ej s04-pc00): " DOMAINNAME
+read -p "Nombre de dominio Samba (ej. S04-PC00): " SMBDOMAIN
 
 ################################################################################
 
@@ -37,8 +39,8 @@ include /etc/ldap/schema/samba.schema
 EOF2
 mkdir /tmp/slapd.d
 slaptest -f samba.conf -F /tmp/slapd.d/
-cp /tmp/slapd.d/cn\=config/cn\=schema/cn\=\{4\}samba.ldif /etc/ldap/slapd.d/cn\=config/cn\=schema
-chown openldap:openldap /etc/ldap/slapd.d/cn\=config/cn\=schema/cn\=\{4\}samba.ldif
+cp "/tmp/slapd.d/cn=config/cn=schema/cn={4}samba.ldif" "/etc/ldap/slapd.d/cn=config/cn=schema"
+chown openldap:openldap '/etc/ldap/slapd.d/cn=config/cn=schema/cn={4}samba.ldif'
 /etc/init.d/slapd stop
 /etc/init.d/slapd start
 ldapsearch -LLLQY EXTERNAL -H ldapi:/// -b cn=schema,cn=config "(objectClass=olcSchemaConfig)" dn
@@ -50,9 +52,9 @@ sudo cat <<EOF > /etc/samba/smb.conf
 ;
 [global]
 # Nombre de dominio
-   workgroup = s04-pc11
+   workgroup = $DOMAINNAME
 # Nombre de servidor para ser visto por los PCs de Windows.
-   netbios name = s04-pc11-samba
+   netbios name = ${DOMAINNAME}-samba
 # Es un PDC
    domain logons = yes
    domain master = yes
@@ -76,10 +78,10 @@ sudo cat <<EOF > /etc/samba/smb.conf
 # Use LDAP for Samba user accounts and groups ..
    passdb backend = ldapsam:ldap://localhost
 # This must match init.ldif ...
-   ldap suffix = dc=s04-pc11,dc=local
+   ldap suffix = dc=${DOMAINNAME},dc=local
 # The password for cn=admin MUST be stored in /etc/samba/secrets.tdb
 # This is done by running 'sudo smbpasswd -w'
-   ldap admin dn = cn=admin,dc=s04-pc11,dc=local
+   ldap admin dn = cn=admin,dc=${DOMAINNAME},dc=local
 # 4 OUs that Samba uses when creating user accounts , computer accounts , etc.
 # (Because we are using smbldap-tools, call them 'Users','Computers',etc.)
    ldap machine suffix = ou=Computers
@@ -173,6 +175,22 @@ sudo mkdir -v -p -m 777 /var/lib/samba/netlogon
 sudo cp /usr/share/doc/smbldap-tools/examples/smbldap.conf.gz /etc/smbldap-tools/
 sudo cp /usr/share/doc/smbldap-tools/examples/smbldap_bind.conf /etc/smbldap-tools/
 sudo gzip -d /etc/smbldap-tools/smbldap.conf.gz
+LocalSID=`sudo net getlocalsid | cut -d':' -f2 | tr -d ' '`
+sed -e "s/SID=\".*\"/SID=\"$LocalSID\"/g" \
+-e "s/sambaDomain=\".*\"/sambaDomain=$SMBDOMAIN/g" \
+-e "s/slaveLDAP=/#slaveLDAP=/g" \
+-e "s/masterLDAP=\".*\"/masterLDAP=\"ldap:\/\/Sldap-server.$DOMAINNAME.local\/\"/g" \
+-e "s/ldapTLS=\"1\"/ldapTLS=\"0\"/g" \
+-e "s/verify=\"require\"/verify=\"none\"/g" \
+-e "s/clientcert=\".*\"/clientcert=\"\/etc\/smbldap-tools\/smbldap-tools.$DOMAINNAME.local.pem\"/g" \
+-e "s/clientkey=\".*\"/clientkey=\"\/etc\/smbldap-tools\/smbldap-tools.$DOMAINNAME.local.key\"/g" \
+-e "s/suffix=\".*\"/suffix=\"dc=$DOMAINNAME,dc=local\"/g" \
+-e "s/userSmbHome=\".*\"/userSmbHome=\""'\\\\'"$SMBDOMAIN"'\\%U'"\"/g" \
+-e "s/userProfile=\".*\"/userProfile=\""'\\\\'"$SMBDOMAIN"'\\profiles\\%U'"\"/g" \
+-e "s/userHomeDrive=\".*\"/userHomeDrive=\"H:\"/g" \
+-e "s/mailDomain=\".*\"/mailDomain=\"$DOMAINNAME.local\"/g" \
+/etc/smbldap-tools/smbldap.conf
+
 ################################################################################
 
 ## SERVIDOR MYSQL ##############################################################
