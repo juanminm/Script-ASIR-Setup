@@ -3,7 +3,22 @@
 ## Este script generará multiples scripts que contendran los comandos para tener
 ## todos los servidores con sus servicios y configuraciones.
 
+## FUNCIONES ###################################################################
+get_net(){
+    echo $1 | cut -d'.' -f1-3
+}
+
+get_hostip(){
+    echo
+}
+################################################################################
+
 ## PARAMETROS ##################################################################
+read -p "Dirección IP de la DMZ (ej: 172.20.100.0):" DMZNET
+DMZNET=`get_net $DMZNET`
+read -p "Los tres primeros octetos de la LAN:" LANNET
+LANNET=`get_net $LANNET`
+
 
 ################################################################################
 
