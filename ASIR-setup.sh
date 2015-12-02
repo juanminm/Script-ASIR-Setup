@@ -180,7 +180,7 @@ sudo cp /usr/share/doc/smbldap-tools/examples/smbldap_bind.conf /etc/smbldap-too
 sudo gzip -d /etc/smbldap-tools/smbldap.conf.gz
 LocalSID=`sudo net getlocalsid | cut -d':' -f2 | tr -d ' '`
 sudo sed -i -e "s/SID=\".*\"/SID=\"$LocalSID\"/g" \
-	-e "s/sambaDomain=\".*\"/sambaDomain=$SMBDOMAIN/g" \
+	-e "s/sambaDomain=\".*\"/sambaDomain=\"$SMBDOMAIN\"/g" \
 	-e "s/slaveLDAP=/#slaveLDAP=/g" \
 	-e "s/masterLDAP=\".*\"/masterLDAP=\"ldap:\/\/$LDAPHOSTNAME.$DOMAINNAME.local\/\"/g" \
 	-e "s/ldapTLS=\"1\"/ldapTLS=\"0\"/g" \
@@ -212,7 +212,7 @@ read -p "Se va a instalar libnss-ldap, lo siguiente que debes escribir en orden 
     Sí
     No
     cn=admin,dc=$DOMAINNAME,dc=local
-	******"
+    ******"
 sudo apt-get install libnss-ldap
 read -p "Ahora se reconfigurará, lo mismo pero añadiendo:
 	debconf: Sí
