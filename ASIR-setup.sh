@@ -41,10 +41,9 @@ MYSQLSRVIP=`get_ip $DMZNET $MYSQLSRVIP`
 
 read -p "Hostname del servidor LDAP (ej. 'Sldap-pc00')" LDAPHOSTNAME
 read -p "Cuarto octeto de la dirección IP del servidor LDAP (ej. '5'): " LDAPSRVIP
-LDAPSRVIP=`getip $LANNET $LDAPSRVIP`
+LDAPSRVIP=`get_ip $LANNET $LDAPSRVIP`
 read -p "Nombre de dominio LDAP (ej 's04-pc00'): " DOMAINNAME
 read -p "Nombre de dominio Samba (ej. 'S04-PC00'): " SMBDOMAIN
-read -s -p "Contraseña de root de SAMBA (ej. 'ausias'): " SMBROOTPASS; echo 
 ################################################################################
 
 ## SERVIDOR IPTABLES ###########################################################
@@ -60,6 +59,9 @@ read -s -p "Contraseña de root de SAMBA (ej. 'ausias'): " SMBROOTPASS; echo
 ################################################################################
 
 ## SERVIDOR LDAP ###############################################################
+cat <<LDAPEOF > ldap-server-setup.sh
+#!/bin/bash
+
 sudo apt-get install slapd ldap-utils samba samba-doc libpam-smbpass smbclient smbldap-tools winbind
 sudo dpkg-reconfigure slapd
 sudo slapcat
@@ -213,27 +215,28 @@ sudo mkdir -v -p -m 777 /var/lib/samba/netlogon
 sudo cp /usr/share/doc/smbldap-tools/examples/smbldap.conf.gz /etc/smbldap-tools/
 sudo cp /usr/share/doc/smbldap-tools/examples/smbldap_bind.conf /etc/smbldap-tools/
 sudo gzip -d /etc/smbldap-tools/smbldap.conf.gz
-LocalSID=`sudo net getlocalsid | cut -d':' -f2 | tr -d ' '`
-sudo sed -i -e "s/SID=\".*\"/SID=\"$LocalSID\"/g" \
-	-e "s/sambaDomain=\".*\"/sambaDomain=\"$SMBDOMAIN\"/g" \
-	-e "s/slaveLDAP=/#slaveLDAP=/g" \
-	-e "s/masterLDAP=\".*\"/masterLDAP=\"ldap:\/\/$LDAPHOSTNAME.$DOMAINNAME.local\/\"/g" \
-	-e "s/ldapTLS=\"1\"/ldapTLS=\"0\"/g" \
-	-e "s/verify=\"require\"/verify=\"none\"/g" \
-	-e "s/clientcert=\".*\"/clientcert=\"\/etc\/smbldap-tools\/smbldap-tools.$DOMAINNAME.local.pem\"/g" \
-	-e "s/clientkey=\".*\"/clientkey=\"\/etc\/smbldap-tools\/smbldap-tools.$DOMAINNAME.local.key\"/g" \
-	-e "s/suffix=\".*\"/suffix=\"dc=$DOMAINNAME,dc=local\"/g" \
-	-e "s/userSmbHome=\".*\"/userSmbHome=\""'\\\\'"$SMBDOMAIN"'\\%U'"\"/g" \
-	-e "s/userProfile=\".*\"/userProfile=\""'\\\\'"$SMBDOMAIN"'\\profiles\\%U'"\"/g" \
-	-e "s/userHomeDrive=\".*\"/userHomeDrive=\"H:\"/g" \
-	-e "s/mailDomain=\".*\"/mailDomain=\"$DOMAINNAME.local\"/g" \
+LocalSID=\`sudo net getlocalsid | cut -d':' -f2 | tr -d ' '\`
+sudo sed -i -e "s/SID=\".*\"/SID=\"\$LocalSID\"/g" \\
+	-e "s/sambaDomain=\".*\"/sambaDomain=\"$SMBDOMAIN\"/g" \\
+	-e "s/slaveLDAP=/#slaveLDAP=/g" \\
+	-e "s/masterLDAP=\".*\"/masterLDAP=\"ldap:\/\/$LDAPHOSTNAME.$DOMAINNAME.local\/\"/g" \\
+	-e "s/ldapTLS=\"1\"/ldapTLS=\"0\"/g" \\
+	-e "s/verify=\"require\"/verify=\"none\"/g" \\
+	-e "s/clientcert=\".*\"/clientcert=\"\/etc\/smbldap-tools\/smbldap-tools.$DOMAINNAME.local.pem\"/g" \\
+	-e "s/clientkey=\".*\"/clientkey=\"\/etc\/smbldap-tools\/smbldap-tools.$DOMAINNAME.local.key\"/g" \\
+	-e "s/suffix=\".*\"/suffix=\"dc=$DOMAINNAME,dc=local\"/g" \\
+	-e "s/userSmbHome=\".*\"/userSmbHome=\""'\\\\\\\\'"$SMBDOMAIN"'\\\\%U'"\"/g" \\
+	-e "s/userProfile=\".*\"/userProfile=\""'\\\\\\\\'"$SMBDOMAIN"'\\\\profiles\\\\%U'"\"/g" \\
+	-e "s/userHomeDrive=\".*\"/userHomeDrive=\"H:\"/g" \\
+	-e "s/mailDomain=\".*\"/mailDomain=\"$DOMAINNAME.local\"/g" \\
 	/etc/smbldap-tools/smbldap.conf
 
-sudo sed -i -e "s/slaveDN=\"/#slaveSID=\"/g" \
-	-e "s/slavePw=\"/#slavePw=\"/g" \
-	-e "s/masterDN=\".*\"/masterDN=\"cn=admin,dc=$DOMAINNAME,dc=local\"/g" \
-	-e "s/masterPw=\".*\"/masterPw=\"$SMBROOTPASS\"/g" \
-/etc/smbldap-tools/smbldap_bind.conf
+read -s -p "Contraseña de root de SAMBA (ej. 'ausias'): " SMBROOTPASS; echo
+sudo sed -i -e "s/slaveDN=\"/#slaveSID=\"/g" \\
+	-e "s/slavePw=\"/#slavePw=\"/g" \\
+	-e "s/masterDN=\".*\"/masterDN=\"cn=admin,dc=$DOMAINNAME,dc=local\"/g" \\
+	-e "s/masterPw=\".*\"/masterPw=\"\$SMBROOTPASS\"/g" \\
+	/etc/smbldap-tools/smbldap_bind.conf
 
 sudo smbldap-populate
 sudo service smbd restart
@@ -264,10 +267,10 @@ sudo getent group | less
 sudo apt-get install apache2 ldap-account-manager
 sudo service apache2 restart
 read -p "A partir de aquí configura el LDAP mediante el LDAP Manager"
-sudo bash -c "cat <<'EOF' > /var/lib/samba/netlogon/logon.bat
+sudo bash -c "cat <<'EOF' > logon.bat
 @echo off
-net time \\\\$LDAPSRVIP /set /yes
-net use z: \\\\$LDAPSRVIP\\datosEnServidor
+net time \\\\\\\\$LDAPSRVIP /set /yes
+net use z: \\\\\\\\$LDAPSRVIP\datosEnServidor
 EOF"
 sudo chown root:root /var/lib/samba/netlogon/logon.bat
 sudo chmod 755 /var/lib/samba/netlogon/logon.bat
@@ -276,17 +279,17 @@ sudo chown nobody:nogroup /datosDeUsuariosLDAP
 sudo chmod 777 /datosDeUsuariosLDAP
 sudo bash -c "cat <<'EOF' > /datosDeUsuariosLDAP/creaCarpetaDeUsuarioLDAP.sh
 #!/bin/bash
-if [ ! -d /datosDeUsuariosLDAP/\$1 ]
+if [ ! -d /datosDeUsuariosLDAP/\\\$1 ]
 then
-    mkdir /datosDeUsuariosLDAP/\$1
-    chown \$1:\$2 /datosDeUsuariosLDAP/\$1
+    mkdir /datosDeUsuariosLDAP/\\\$1
+    chown \\\$1:\\\$2 /datosDeUsuariosLDAP/\\\$1
 fi
 EOF"
 sudo chown nobody:nogroup /datosDeUsuariosLDAP/creaCarpetaDeUsuarioLDAP.sh
 sudo chmod 755 /datosDeUsuariosLDAP/creaCarpetaDeUsuarioLDAP.sh
-sudo sed -e '59 s/\(logon drive =\).*/\1 Z\:/g' \
-	-e '62 s/\(logon script =\).*/\1 logon.bat/g' \
-	-e '78 s/\(logon script =\).*/\1 logon.bat/g' \
+sudo sed -e '59 s/\(logon drive =\).*/\1 Z\:/g' \\
+	-e '62 s/\(logon script =\).*/\1 logon.bat/g' \\
+	-e '78 s/\(logon script =\).*/\1 logon.bat/g' \\
 	/etc/samba/smb.conf
 sudo bash -c "cat <<'EOF' >> /etc/samba/smb.conf
 [datosEnServidor]
@@ -304,6 +307,8 @@ nfs: $LANNET/24
 EOF"
 sudo bash -c "echo \"/datosDeUsuariosLDAP $LANNET/24(rw,sync,no_root_squash,no_subtree_check)\" >> /etc/exports"
 sudo service nfs-kernel-server restart
+LDAPEOF
+
 ################################################################################
 
 ## SERVIDOR MYSQL ##############################################################
