@@ -44,7 +44,7 @@ read -p "Cuarto octeto de la dirección IP del servidor LDAP (ej. '5'): " LDAPSR
 LDAPSRVIP=`getip $LANNET $LDAPSRVIP`
 read -p "Nombre de dominio LDAP (ej 's04-pc00'): " DOMAINNAME
 read -p "Nombre de dominio Samba (ej. 'S04-PC00'): " SMBDOMAIN
-read -p "Contraseña de root de SAMBA (ej. 'ausias'): " SMBROOTPASS
+read -s -p "Contraseña de root de SAMBA (ej. 'ausias'): " SMBROOTPASS; echo 
 ################################################################################
 
 ## SERVIDOR IPTABLES ###########################################################
