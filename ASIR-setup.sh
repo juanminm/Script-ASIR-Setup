@@ -39,7 +39,7 @@ read -p "Hostname del servidor MySQL (ej. 'mysql-server'): " MYSQLHOSTNAME
 read -p "Dirección IP del servidor MySQL (ej. 3): " MYSQLSRVIP
 MYSQLSRVIP=`get_ip $DMZNET $MYSQLSRVIP`
 
-read -p "Hostname del servidor LDAP (ej. 'Sldap-pc11')" LDAPHOSTNAME
+read -p "Hostname del servidor LDAP (ej. 'Sldap-pc00')" LDAPHOSTNAME
 read -p "Cuarto octeto de la dirección IP del servidor LDAP (ej. '5'): " LDAPSRVIP
 LDAPSRVIP=`getip $LANNET $LDAPSRVIP`
 read -p "Nombre de dominio LDAP (ej 's04-pc00'): " DOMAINNAME
@@ -161,7 +161,7 @@ sudo bash -c "cat <<'EOF' > /etc/samba/smb.conf
    path = /var/lib/samba/netlogon
    admin users = root
    guest ok = yes
-   browsable =no
+   browsable = no
    logon script = allusers.bat
 [Profiles]
    comment = Roaming Profile Share
@@ -250,8 +250,8 @@ read -p "Se va a instalar libnss-ldap, lo siguiente que debes escribir en orden 
     ******"
 sudo apt-get install libnss-ldap
 read -p "Ahora se reconfigurará, lo mismo pero añadiendo:
-	debconf: Sí
-	Local crypt: crypt"
+    debconf: Sí
+    Local crypt: crypt"
 sudo dpkg-reconfigure ldap-auth-config
 sudo auth-client-config -t nss -p lac_ldap
 read -p "Selecciona las siguientes:
