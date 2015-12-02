@@ -261,6 +261,13 @@ sudo bash -c "cat <<'EOF' >> /etc/samba/smb.conf
    directory mask = 775
    read only = no
 EOF"
+sudo apt-get install nfs-kernel-server
+sudo bash -c "cat <<'EOF' >> /etc/hosts.allow
+portmap: $LANNET/24
+nfs: $LANNET/24
+EOF"
+sudo bash -c "echo \"/datosDeUsuariosLDAP $LANNET/24(rw,sync,no_root_squash,no_subtree_check)\" >> /etc/exports"
+sudo service nfs-kernel-server restart
 ################################################################################
 
 ## SERVIDOR MYSQL ##############################################################
