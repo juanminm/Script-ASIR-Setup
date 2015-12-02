@@ -4,9 +4,11 @@
 ## todos los servidores con sus servicios y configuraciones.
 
 ## PARAMETROS GLOBALES #########################################################
-read -p "Nombre de dominio LDAP (ej s04-pc00): " DOMAINNAME
-read -p "Nombre de dominio Samba (ej. S04-PC00): " SMBDOMAIN
-
+read -p "Hostname del servidor LDAP (ej. 'Sldap-pc11')" LDAPHOSTNAME
+read -p "Dirección IP del servidor LDAP (ej. 192.168.100.5): " LDAPSRVIP
+read -p "Nombre de dominio LDAP (ej 's04-pc00'): " DOMAINNAME
+read -p "Nombre de dominio Samba (ej. 'S04-PC00'): " SMBDOMAIN
+read -p "Contraseña de root de SAMBA (ej. 'ausias'): " SMBROOTPASS
 ################################################################################
 
 ## SERVIDOR IPTABLES ###########################################################
@@ -85,7 +87,7 @@ sudo cat <<EOF > /etc/samba/smb.conf
 # 4 OUs that Samba uses when creating user accounts , computer accounts , etc.
 # (Because we are using smbldap-tools, call them 'Users','Computers',etc.)
    ldap machine suffix = ou=Computers
-   ldap user suffix = ou=People
+   ldap user suffix = ou=Users
    ldap group suffix = ou=Groups
    ldap idmap suffix = ou=Idmap
 # Samba and LDAP server are on the same server in this example.
@@ -176,10 +178,10 @@ sudo cp /usr/share/doc/smbldap-tools/examples/smbldap.conf.gz /etc/smbldap-tools
 sudo cp /usr/share/doc/smbldap-tools/examples/smbldap_bind.conf /etc/smbldap-tools/
 sudo gzip -d /etc/smbldap-tools/smbldap.conf.gz
 LocalSID=`sudo net getlocalsid | cut -d':' -f2 | tr -d ' '`
-sed -e "s/SID=\".*\"/SID=\"$LocalSID\"/g" \
+sed -i -e "s/SID=\".*\"/SID=\"$LocalSID\"/g" \
 -e "s/sambaDomain=\".*\"/sambaDomain=$SMBDOMAIN/g" \
 -e "s/slaveLDAP=/#slaveLDAP=/g" \
--e "s/masterLDAP=\".*\"/masterLDAP=\"ldap:\/\/Sldap-server.$DOMAINNAME.local\/\"/g" \
+-e "s/masterLDAP=\".*\"/masterLDAP=\"ldap:\/\/$LDAPHOSTNAME.$DOMAINNAME.local\/\"/g" \
 -e "s/ldapTLS=\"1\"/ldapTLS=\"0\"/g" \
 -e "s/verify=\"require\"/verify=\"none\"/g" \
 -e "s/clientcert=\".*\"/clientcert=\"\/etc\/smbldap-tools\/smbldap-tools.$DOMAINNAME.local.pem\"/g" \
@@ -191,6 +193,41 @@ sed -e "s/SID=\".*\"/SID=\"$LocalSID\"/g" \
 -e "s/mailDomain=\".*\"/mailDomain=\"$DOMAINNAME.local\"/g" \
 /etc/smbldap-tools/smbldap.conf
 
+sed -i -e "s/slaveDN=\"/#slaveSID=\"/g" \
+-e "s/slavePw=\"/#slavePw=\"/g" \
+-e "s/masterDN=\".*\"/masterDN=\"cn=admin,dc=$DOMAINNAME,dc=local\"/g" \
+-e "s/masterPw=\".*\"/masterPw=\"$SMBROOTPASS\"/g" \
+/etc/smbldap-tools/smbldap_bind.conf
+
+sudo smbldap-populate
+sudo service smbd restart
+sudo service nmbd restart
+sudo service winbind restart
+sudo service slapd restart
+read -p "Se va a instalar libnss-ldap, lo siguiente que debes escribir en orden es:
+    ldap://$LDAPSRVIP
+    dc=$DOMAINNAME,dc=local
+    3
+    Sí
+    No
+    cn=admin,dc=$DOMAINNAME,dc=local
+	******"
+sudo apt-get install libnss-ldap
+read -p "Ahora se reconfigurará, lo mismo pero añadiendo:
+	debconf: Sí
+	Local crypt: crypt"
+sudo dpkg-reconfigure ldap-auth-config
+sudo auth-client-config -t nss -p lac_ldap
+read -p "Selecciona las siguientes:
+    [*] Unix authentication                                                                                                                                  │
+    [*] Winbind NT/Active Directory authentication                                                                                                           │
+    [*] LDAP Authentication"
+sudo pam-auth-update
+read -p "Comprueba los siguientes grupos..."
+sudo getent group | less
+sudo apt-get install apache2 ldap-account-manager
+sudo service apache2 restart
+read -p "A partir de aquí configura el LDAP mediante el LDAP Manager"
 ################################################################################
 
 ## SERVIDOR MYSQL ##############################################################
