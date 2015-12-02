@@ -48,7 +48,7 @@ chown openldap:openldap '/etc/ldap/slapd.d/cn=config/cn=schema/cn={4}samba.ldif'
 ldapsearch -LLLQY EXTERNAL -H ldapi:/// -b cn=schema,cn=config "(objectClass=olcSchemaConfig)" dn
 EOF
 sudo cp /etc/samba/smb.conf smb.conf.old
-sudo cat <<EOF > /etc/samba/smb.conf
+sudo bash -c "cat <<'EOF' > /etc/samba/smb.conf
 ;
 ; /etc/smb.conf
 ;
@@ -164,7 +164,7 @@ sudo cat <<EOF > /etc/samba/smb.conf
    create mask = 755
    directory mask = 755
    read only = no
-EOF
+EOF"
 testparm
 read -p "Lee y comprueba el testparm. Despues dale a ENTER"
 sudo service smbd restart
@@ -178,25 +178,25 @@ sudo cp /usr/share/doc/smbldap-tools/examples/smbldap.conf.gz /etc/smbldap-tools
 sudo cp /usr/share/doc/smbldap-tools/examples/smbldap_bind.conf /etc/smbldap-tools/
 sudo gzip -d /etc/smbldap-tools/smbldap.conf.gz
 LocalSID=`sudo net getlocalsid | cut -d':' -f2 | tr -d ' '`
-sed -i -e "s/SID=\".*\"/SID=\"$LocalSID\"/g" \
--e "s/sambaDomain=\".*\"/sambaDomain=$SMBDOMAIN/g" \
--e "s/slaveLDAP=/#slaveLDAP=/g" \
--e "s/masterLDAP=\".*\"/masterLDAP=\"ldap:\/\/$LDAPHOSTNAME.$DOMAINNAME.local\/\"/g" \
--e "s/ldapTLS=\"1\"/ldapTLS=\"0\"/g" \
--e "s/verify=\"require\"/verify=\"none\"/g" \
--e "s/clientcert=\".*\"/clientcert=\"\/etc\/smbldap-tools\/smbldap-tools.$DOMAINNAME.local.pem\"/g" \
--e "s/clientkey=\".*\"/clientkey=\"\/etc\/smbldap-tools\/smbldap-tools.$DOMAINNAME.local.key\"/g" \
--e "s/suffix=\".*\"/suffix=\"dc=$DOMAINNAME,dc=local\"/g" \
--e "s/userSmbHome=\".*\"/userSmbHome=\""'\\\\'"$SMBDOMAIN"'\\%U'"\"/g" \
--e "s/userProfile=\".*\"/userProfile=\""'\\\\'"$SMBDOMAIN"'\\profiles\\%U'"\"/g" \
--e "s/userHomeDrive=\".*\"/userHomeDrive=\"H:\"/g" \
--e "s/mailDomain=\".*\"/mailDomain=\"$DOMAINNAME.local\"/g" \
-/etc/smbldap-tools/smbldap.conf
+sudo sed -i -e "s/SID=\".*\"/SID=\"$LocalSID\"/g" \
+	-e "s/sambaDomain=\".*\"/sambaDomain=$SMBDOMAIN/g" \
+	-e "s/slaveLDAP=/#slaveLDAP=/g" \
+	-e "s/masterLDAP=\".*\"/masterLDAP=\"ldap:\/\/$LDAPHOSTNAME.$DOMAINNAME.local\/\"/g" \
+	-e "s/ldapTLS=\"1\"/ldapTLS=\"0\"/g" \
+	-e "s/verify=\"require\"/verify=\"none\"/g" \
+	-e "s/clientcert=\".*\"/clientcert=\"\/etc\/smbldap-tools\/smbldap-tools.$DOMAINNAME.local.pem\"/g" \
+	-e "s/clientkey=\".*\"/clientkey=\"\/etc\/smbldap-tools\/smbldap-tools.$DOMAINNAME.local.key\"/g" \
+	-e "s/suffix=\".*\"/suffix=\"dc=$DOMAINNAME,dc=local\"/g" \
+	-e "s/userSmbHome=\".*\"/userSmbHome=\""'\\\\'"$SMBDOMAIN"'\\%U'"\"/g" \
+	-e "s/userProfile=\".*\"/userProfile=\""'\\\\'"$SMBDOMAIN"'\\profiles\\%U'"\"/g" \
+	-e "s/userHomeDrive=\".*\"/userHomeDrive=\"H:\"/g" \
+	-e "s/mailDomain=\".*\"/mailDomain=\"$DOMAINNAME.local\"/g" \
+	/etc/smbldap-tools/smbldap.conf
 
-sed -i -e "s/slaveDN=\"/#slaveSID=\"/g" \
--e "s/slavePw=\"/#slavePw=\"/g" \
--e "s/masterDN=\".*\"/masterDN=\"cn=admin,dc=$DOMAINNAME,dc=local\"/g" \
--e "s/masterPw=\".*\"/masterPw=\"$SMBROOTPASS\"/g" \
+sudo sed -i -e "s/slaveDN=\"/#slaveSID=\"/g" \
+	-e "s/slavePw=\"/#slavePw=\"/g" \
+	-e "s/masterDN=\".*\"/masterDN=\"cn=admin,dc=$DOMAINNAME,dc=local\"/g" \
+	-e "s/masterPw=\".*\"/masterPw=\"$SMBROOTPASS\"/g" \
 /etc/smbldap-tools/smbldap_bind.conf
 
 sudo smbldap-populate
@@ -228,6 +228,39 @@ sudo getent group | less
 sudo apt-get install apache2 ldap-account-manager
 sudo service apache2 restart
 read -p "A partir de aquí configura el LDAP mediante el LDAP Manager"
+sudo cat <<EOF > /var/lib/samba/netlogon/logon.bat
+@echo off
+net time \\10.10.254.254 /set /yes
+net use z: \\10.10.254.254\datosEnServidor
+EOF
+sudo chown root:root /var/lib/samba/netlogon/logon.bat
+sudo chmod 755 /var/lib/samba/netlogon/logon.bat
+sudo mkdir /datosDeUsuariosLDAP
+sudo chown nobody:nogroup /datosDeUsuariosLDAP
+sudo chmod 777 /datosDeUsuariosLDAP
+sudo bash -c "cat <<'EOF' > /datosDeUsuariosLDAP/creaCarpetaDeUsuarioLDAP.sh
+#!/bin/bash
+if [ ! -d /datosDeUsuariosLDAP/\$1 ]
+then
+    mkdir /datosDeUsuariosLDAP/\$1
+    chown \$1:\$2 /datosDeUsuariosLDAP/\$1
+fi
+EOF"
+sudo chown nobody:nogroup /datosDeUsuariosLDAP/creaCarpetaDeUsuarioLDAP.sh
+sudo chmod 755 /datosDeUsuariosLDAP/creaCarpetaDeUsuarioLDAP.sh
+sudo sed -e '59 s/\(logon drive =\).*/\1 Z\:/g' \
+	-e '62 s/\(logon script =\).*/\1 logon.bat/g' \
+	-e '78 s/\(logon script =\).*/\1 logon.bat/g' \
+	/etc/samba/smb.conf
+sudo bash -c "cat <<'EOF' >> /etc/samba/smb.conf
+[datosEnServidor]
+   preexec = /datosDeUsuariosLDAP/creaCarpetaDeUsuarioLDAP.sh %U %G
+   path = /datosDeUsuariosLDAP/%U
+   browseable = yes
+   create mask = 775
+   directory mask = 775
+   read only = no
+EOF"
 ################################################################################
 
 ## SERVIDOR MYSQL ##############################################################
