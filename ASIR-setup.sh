@@ -5,7 +5,8 @@
 
 ## PARAMETROS GLOBALES #########################################################
 read -p "Hostname del servidor LDAP (ej. 'Sldap-pc11')" LDAPHOSTNAME
-read -p "Dirección IP del servidor LDAP (ej. 192.168.100.5): " LDAPSRVIP
+read -p "Cuarto octeto de la dirección IP del servidor LDAP (ej. '5'): " LDAPSRVIP
+LDAPSRVIP=`getip $LANNET $LDAPSRVIP`
 read -p "Nombre de dominio LDAP (ej 's04-pc00'): " DOMAINNAME
 read -p "Nombre de dominio Samba (ej. 'S04-PC00'): " SMBDOMAIN
 read -p "Contraseña de root de SAMBA (ej. 'ausias'): " SMBROOTPASS
@@ -228,11 +229,11 @@ sudo getent group | less
 sudo apt-get install apache2 ldap-account-manager
 sudo service apache2 restart
 read -p "A partir de aquí configura el LDAP mediante el LDAP Manager"
-sudo cat <<EOF > /var/lib/samba/netlogon/logon.bat
+sudo bash -c "cat <<'EOF' > /var/lib/samba/netlogon/logon.bat
 @echo off
-net time \\10.10.254.254 /set /yes
-net use z: \\10.10.254.254\datosEnServidor
-EOF
+net time \\\\$LDAPSRVIP /set /yes
+net use z: \\\\$LDAPSRVIP\\datosEnServidor
+EOF"
 sudo chown root:root /var/lib/samba/netlogon/logon.bat
 sudo chmod 755 /var/lib/samba/netlogon/logon.bat
 sudo mkdir /datosDeUsuariosLDAP
