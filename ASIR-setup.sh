@@ -267,7 +267,7 @@ sudo getent group | less
 sudo apt-get install apache2 ldap-account-manager
 sudo service apache2 restart
 read -p "A partir de aquí configura el LDAP mediante el LDAP Manager"
-sudo bash -c "cat <<'EOF' > logon.bat
+sudo bash -c "cat <<'EOF' > /var/lib/samba/netlogon/logon.bat
 @echo off
 net time \\\\\\\\$LDAPSRVIP /set /yes
 net use z: \\\\\\\\$LDAPSRVIP\datosEnServidor
@@ -287,7 +287,7 @@ fi
 EOF"
 sudo chown nobody:nogroup /datosDeUsuariosLDAP/creaCarpetaDeUsuarioLDAP.sh
 sudo chmod 755 /datosDeUsuariosLDAP/creaCarpetaDeUsuarioLDAP.sh
-sudo sed -e '59 s/\(logon drive =\).*/\1 Z\:/g' \\
+sudo sed -i -e '59 s/\(logon drive =\).*/\1 Z\:/g' \\
 	-e '62 s/\(logon script =\).*/\1 logon.bat/g' \\
 	-e '78 s/\(logon script =\).*/\1 logon.bat/g' \\
 	/etc/samba/smb.conf
