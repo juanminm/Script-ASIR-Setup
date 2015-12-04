@@ -62,6 +62,7 @@ read -p "Nombre de dominio Samba (ej. 'S04-PC00'): " SMBDOMAIN
 cat <<LDAPEOF > ldap-server-setup.sh
 #!/bin/bash
 
+sudo apt-get update
 sudo apt-get install slapd ldap-utils samba samba-doc libpam-smbpass smbclient smbldap-tools winbind
 sudo dpkg-reconfigure slapd
 sudo slapcat
