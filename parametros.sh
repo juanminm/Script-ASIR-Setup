@@ -1,45 +1,59 @@
 ## PARAMETROS ##################################################################
-WANNET=$(zenity --entry --title="IP de la red WAN" --text="Dirección IP de la red WAN:" --entry-text "ej: 10.3.4.0")
-DMZNET=$(zenity --entry --title="IP de la red DMZ" --text="Dirección IP de la red DMZ:" --entry-text "ej: 172.20.100.0")
-LANNET=$(zenity --entry --title="IP de la red LAN" --text="Dirección IP de la red LAN:" --entry-text "ej: 192.168.100.0")
+get_ip(){
+	NETPART=`echo $1 | cut -d'.' -f1-3`
+	echo "$NETPART.$2"
+}
 
-IPTABLEHOSTNAME=$(zenity --entry --title="Hostname del servidor iptables" --text="Hostname del servidor iptables:" --entry-text "<Introduce aqui el nombre>")
-IPTABLESIPWAN=$(zenity --entry --title="Cuarto octeto de la dirección IP del servidor iptables para eth0" --text="Cuarto octeto de la dirección IP del servidor iptables para eth0:" --entry-text "ej. '84'")
+pideIPZ(){
+    # $1 sera de donde es dicha IP (ej: "de la red LAN") y $2 sera la IP ejemplo
+    zenity --entry --title="IP $1" --text="Dirección IP $1:" --entry-text "ej. '$2'"
+}
+
+pideHostZ(){
+    # $1 es el nombre de la 'utilidad' del servidor (ej: Apache2, DNS) y $2 el nombre real de dicha maquina (apache-server, dns-server)
+    zenity --entry --title="Hostname del servidor $1" --text="Hostname del servidor $1:" --entry-text "$2"
+}
+
+pide4octZ(){
+    # $1 sera de donde es dicho octeto (ej: "del servidor iptables") y $2 sera el numero ejemplo
+    zenity --entry --title="Cuarto octeto de la dirección IP $1" --text="Cuarto octeto de la dirección IP $1:" --entry-text "ej. '$2'"
+}
+
+pideDomZ(){
+    # $1 sera de donde es el dominio (DNS, Samba, LDAP) y $2 el nombre ejemplo
+    zenity --entry --title="Nombre del dominio $1" --text="Nombre del dominio $1: " --entry-text "ej. '$2'"
+}
+
+WANNET=$(pideIPZ "de la red WAN" "10.3.4.0")
+DMZNET=$(pideIPZ "de la red DMZ" "172.20.100.0")
+LANNET=$(pideIPZ "de la red LAN" "192.168.100.0")
+
+IPTABLEHOSTNAME=$(pideHostZ "iptables" "iptables-server")
+IPTABLESIPWAN=$(pide4octZ "del servidor iptables para eth0" "84")
 IPTABLESIPWAN=`get_ip $WANNET $IPTABLESIPWAN`
-IPTABLESIPLAN=$(zenity --entry --title="Cuarto octeto de la dirección IP del servidor iptables para eth1" --text="Cuarto octeto de la dirección IP del servidor iptables para eth1:" --entry-text "ej. '254'")
+IPTABLESIPLAN=$(pide4octZ "del servidor iptables para eth1" "254")
 IPTABLESIPLAN=`get_ip $LANNET $IPTABLESIPLAN`
-IPTABLESIPDMZ=$(zenity --entry --title="Cuarto octeto de la dirección IP del servidor iptables para eth2" --text="Cuarto octeto de la dirección IP del servidor iptables para eth2:" --entry-text "ej. '254'")
+IPTABLESIPDMZ=$(pide4octZ "del servidor iptables para eth2" "254")
 IPTABLESIPDMZ=`get_ip $DMZNET $IPTABLESIPDMZ`
 
-#    read -p "Hostname del servidor DNS (ej. 'dns-server'): " DNSHOSTNAME
-    read -p "Cuarto octecto de la IP del servidor DNS (ej. '22'): " DNSSRVIP
-    DNSSRVIP=`get_ip $DMZNET $DNSSRVIP`
-    read -p "Nombre del dominio DNS (ej. 'pc00.s04'): " DNSDOMAIN
-
-DNSHOSTNAME=$(zenity --entry --title="Hostname del servidor DNS" --text="Hostname del servidor DNS:" --entry-text "<Introduce aqui el nombre>")
-DNSSRVIP=$()
+DNSHOSTNAME=$(pideHostZ "DNS" "dns-server")
+DNSSRVIP=$(pide4octZ "del servidor DNS" "22")
 DNSSRVIP=`get_ip $DMZNET $DNSSRVIP`
-DNSDOMAIN=$()
+DNSDOMAIN=$(pideDomZ "DNS" "pc00.s04")
 
-    read -p "Hostname del servidor Apache2 (ej. 'apache-server'): " APACHEHOSTNAME
-    read -p "Dirección IP del servidor Apache2 (ej. 49): " APACHESRVIP
-    APACHESRVIP=`get_ip $DMZNET $APACHESRVIP`
-    read -p "Hostname del servidor Warrior (ej. 'warrior-server'): " WARRIORHOSTNAME
-    read -p "Dirección IP del servidor Warrior (ej. 50): " WARRIORSRVIP
-    WARRIORSRVIP=`get_ip $DMZNET $WARRIORSRVIP`
+APACHEHOSTNAME=$(pideHostZ "Apache2" "apache-server")
+APACHESRVIP=$(pide4octZ "del servidor Apache2" "49")
+APACHESRVIP=`get_ip $DMZNET $APACHESRVIP`
+WARRIORHOSTNAME=$(pideHostZ "Warrior" "warrior-server")
+WARRIORSRVIP=$(pide4octZ "del servidor Warrior" "50")
+WARRIORSRVIP=`get_ip $DMZNET $WARRIORSRVIP`
 
+MYSQLHOSTNAME=$(pideHostZ "MySQL" "mysql-server")
+MYSQLSRVIP=$(pide4octZ "del servidor MySQL" "3")
+MYSQLSRVIP=`get_ip $DMZNET $MYSQLSRVIP`
 
-
-
-    read -p "Hostname del servidor MySQL (ej. 'mysql-server'): " MYSQLHOSTNAME
-    read -p "Dirección IP del servidor MySQL (ej. 3): " MYSQLSRVIP
-    MYSQLSRVIP=`get_ip $DMZNET $MYSQLSRVIP`
-
-
-
-
-    read -p "Hostname del servidor LDAP (ej. 'Sldap-pc00')" LDAPHOSTNAME
-    read -p "Cuarto octeto de la dirección IP del servidor LDAP (ej. '5'): " LDAPSRVIP
-    LDAPSRVIP=`get_ip $LANNET $LDAPSRVIP`
-    read -p "Nombre de dominio LDAP (ej 's04-pc00'): " DOMAINNAME
-    read -p "Nombre de dominio Samba (ej. 'S04-PC00'): " SMBDOMAIN
+LDAPHOSTNAME=$(pideHostZ "LDAP" "Sldap-pc00")
+LDAPSRVIP=$(pide4octZ "del servidor LDAP" "5")
+LDAPSRVIP=`get_ip $LANNET $LDAPSRVIP`
+DOMAINNAME=$(pideDomZ "LDAP" "s04-pc00")
+SMBDOMAIN=$(pideDomZ "Samba" "S04-PC00")

@@ -61,7 +61,7 @@ read -p "Nombre de dominio Samba (ej. 'S04-PC00'): " SMBDOMAIN
 ## SERVIDOR LDAP ###############################################################
 cat <<LDAPEOF > ldap-server-setup.sh
 #!/bin/bash
-
+sudo apt-get update
 sudo apt-get install slapd ldap-utils samba samba-doc libpam-smbpass smbclient smbldap-tools winbind
 sudo dpkg-reconfigure slapd
 sudo slapcat
@@ -230,14 +230,12 @@ sudo sed -i -e "s/SID=\".*\"/SID=\"\$LocalSID\"/g" \\
 	-e "s/userHomeDrive=\".*\"/userHomeDrive=\"H:\"/g" \\
 	-e "s/mailDomain=\".*\"/mailDomain=\"$DOMAINNAME.local\"/g" \\
 	/etc/smbldap-tools/smbldap.conf
-
 read -s -p "Contraseña de root de SAMBA (ej. 'ausias'): " SMBROOTPASS; echo
 sudo sed -i -e "s/slaveDN=\"/#slaveSID=\"/g" \\
 	-e "s/slavePw=\"/#slavePw=\"/g" \\
 	-e "s/masterDN=\".*\"/masterDN=\"cn=admin,dc=$DOMAINNAME,dc=local\"/g" \\
 	-e "s/masterPw=\".*\"/masterPw=\"\$SMBROOTPASS\"/g" \\
 	/etc/smbldap-tools/smbldap_bind.conf
-
 sudo smbldap-populate
 sudo service smbd restart
 sudo service nmbd restart
@@ -267,7 +265,7 @@ sudo getent group | less
 sudo apt-get install apache2 ldap-account-manager
 sudo service apache2 restart
 read -p "A partir de aquí configura el LDAP mediante el LDAP Manager"
-sudo bash -c "cat <<'EOF' > logon.bat
+sudo bash -c "cat <<'EOF' > /var/lib/samba/netlogon/logon.bat
 @echo off
 net time \\\\\\\\$LDAPSRVIP /set /yes
 net use z: \\\\\\\\$LDAPSRVIP\datosEnServidor
@@ -287,7 +285,7 @@ fi
 EOF"
 sudo chown nobody:nogroup /datosDeUsuariosLDAP/creaCarpetaDeUsuarioLDAP.sh
 sudo chmod 755 /datosDeUsuariosLDAP/creaCarpetaDeUsuarioLDAP.sh
-sudo sed -e '59 s/\(logon drive =\).*/\1 Z\:/g' \\
+sudo sed -i -e '59 s/\(logon drive =\).*/\1 Z\:/g' \\
 	-e '62 s/\(logon script =\).*/\1 logon.bat/g' \\
 	-e '78 s/\(logon script =\).*/\1 logon.bat/g' \\
 	/etc/samba/smb.conf
