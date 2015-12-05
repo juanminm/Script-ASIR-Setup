@@ -3,13 +3,67 @@
 ## Este script generará multiples scripts que contendran los comandos para tener
 ## todos los servidores con sus servicios y configuraciones.
 
-## PARAMETROS GLOBALES #########################################################
-read -p "Hostname del servidor LDAP (ej. 'Sldap-pc11')" LDAPHOSTNAME
-read -p "Cuarto octeto de la dirección IP del servidor LDAP (ej. '5'): " LDAPSRVIP
-LDAPSRVIP=`getip $LANNET $LDAPSRVIP`
-read -p "Nombre de dominio LDAP (ej 's04-pc00'): " DOMAINNAME
-read -p "Nombre de dominio Samba (ej. 'S04-PC00'): " SMBDOMAIN
-read -p "Contraseña de root de SAMBA (ej. 'ausias'): " SMBROOTPASS
+## FUNCIONES ###################################################################
+get_ip(){
+	NETPART=`echo $1 | cut -d'.' -f1-3`
+	echo "$NETPART.$2"
+}
+
+pideIPZ(){
+    # $1 sera de donde es dicha IP (ej: "de la red LAN") y $2 sera la IP ejemplo
+    zenity --entry --title="IP $1" --text="Dirección IP $1:" --entry-text "ej. '$2'"
+}
+
+pideHostZ(){
+    # $1 es el nombre de la 'utilidad' del servidor (ej: Apache2, DNS) y $2 el nombre real de dicha maquina (apache-server, dns-server)
+    zenity --entry --title="Hostname del servidor $1" --text="Hostname del servidor $1:" --entry-text "$2"
+}
+
+pide4octZ(){
+    # $1 sera de donde es dicho octeto (ej: "del servidor iptables") y $2 sera el numero ejemplo
+    zenity --entry --title="Cuarto octeto de la dirección IP $1" --text="Cuarto octeto de la dirección IP $1:" --entry-text "ej. '$2'"
+}
+
+pideDomZ(){
+    # $1 sera de donde es el dominio (DNS, Samba, LDAP) y $2 el nombre ejemplo
+    zenity --entry --title="Nombre del dominio $1" --text="Nombre del dominio $1: " --entry-text "ej. '$2'"
+}
+################################################################################
+
+## PARAMETROS ##################################################################
+WANNET=$(pideIPZ "de la red WAN" "10.3.4.0")
+DMZNET=$(pideIPZ "de la red DMZ" "172.20.100.0")
+LANNET=$(pideIPZ "de la red LAN" "192.168.100.0")
+
+IPTABLEHOSTNAME=$(pideHostZ "iptables" "iptables-server")
+IPTABLESIPWAN=$(pide4octZ "del servidor iptables para eth0" "84")
+IPTABLESIPWAN=`get_ip $WANNET $IPTABLESIPWAN`
+IPTABLESIPLAN=$(pide4octZ "del servidor iptables para eth1" "254")
+IPTABLESIPLAN=`get_ip $LANNET $IPTABLESIPLAN`
+IPTABLESIPDMZ=$(pide4octZ "del servidor iptables para eth2" "254")
+IPTABLESIPDMZ=`get_ip $DMZNET $IPTABLESIPDMZ`
+
+DNSHOSTNAME=$(pideHostZ "DNS" "dns-server")
+DNSSRVIP=$(pide4octZ "del servidor DNS" "22")
+DNSSRVIP=`get_ip $DMZNET $DNSSRVIP`
+DNSDOMAIN=$(pideDomZ "DNS" "pc00.s04")
+
+APACHEHOSTNAME=$(pideHostZ "Apache2" "apache-server")
+APACHESRVIP=$(pide4octZ "del servidor Apache2" "49")
+APACHESRVIP=`get_ip $DMZNET $APACHESRVIP`
+WARRIORHOSTNAME=$(pideHostZ "Warrior" "warrior-server")
+WARRIORSRVIP=$(pide4octZ "del servidor Warrior" "50")
+WARRIORSRVIP=`get_ip $DMZNET $WARRIORSRVIP`
+
+MYSQLHOSTNAME=$(pideHostZ "MySQL" "mysql-server")
+MYSQLSRVIP=$(pide4octZ "del servidor MySQL" "3")
+MYSQLSRVIP=`get_ip $DMZNET $MYSQLSRVIP`
+
+LDAPHOSTNAME=$(pideHostZ "LDAP" "Sldap-pc00")
+LDAPSRVIP=$(pide4octZ "del servidor LDAP" "5")
+LDAPSRVIP=`get_ip $LANNET $LDAPSRVIP`
+DOMAINNAME=$(pideDomZ "LDAP" "s04-pc00")
+SMBDOMAIN=$(pideDomZ "Samba" "S04-PC00")
 ################################################################################
 
 ## SERVIDOR IPTABLES ###########################################################
@@ -25,6 +79,9 @@ read -p "Contraseña de root de SAMBA (ej. 'ausias'): " SMBROOTPASS
 ################################################################################
 
 ## SERVIDOR LDAP ###############################################################
+cat <<LDAPEOF > ldap-server-setup.sh
+#!/bin/bash
+sudo apt-get update
 sudo apt-get install slapd ldap-utils samba samba-doc libpam-smbpass smbclient smbldap-tools winbind
 sudo dpkg-reconfigure slapd
 sudo slapcat
@@ -126,7 +183,7 @@ sudo bash -c "cat <<'EOF' > /etc/samba/smb.conf
    path = /var/lib/samba/netlogon
    admin users = root
    guest ok = yes
-   browsable =no
+   browsable = no
    logon script = allusers.bat
 [Profiles]
    comment = Roaming Profile Share
@@ -178,28 +235,27 @@ sudo mkdir -v -p -m 777 /var/lib/samba/netlogon
 sudo cp /usr/share/doc/smbldap-tools/examples/smbldap.conf.gz /etc/smbldap-tools/
 sudo cp /usr/share/doc/smbldap-tools/examples/smbldap_bind.conf /etc/smbldap-tools/
 sudo gzip -d /etc/smbldap-tools/smbldap.conf.gz
-LocalSID=`sudo net getlocalsid | cut -d':' -f2 | tr -d ' '`
-sudo sed -i -e "s/SID=\".*\"/SID=\"$LocalSID\"/g" \
-	-e "s/sambaDomain=\".*\"/sambaDomain=\"$SMBDOMAIN\"/g" \
-	-e "s/slaveLDAP=/#slaveLDAP=/g" \
-	-e "s/masterLDAP=\".*\"/masterLDAP=\"ldap:\/\/$LDAPHOSTNAME.$DOMAINNAME.local\/\"/g" \
-	-e "s/ldapTLS=\"1\"/ldapTLS=\"0\"/g" \
-	-e "s/verify=\"require\"/verify=\"none\"/g" \
-	-e "s/clientcert=\".*\"/clientcert=\"\/etc\/smbldap-tools\/smbldap-tools.$DOMAINNAME.local.pem\"/g" \
-	-e "s/clientkey=\".*\"/clientkey=\"\/etc\/smbldap-tools\/smbldap-tools.$DOMAINNAME.local.key\"/g" \
-	-e "s/suffix=\".*\"/suffix=\"dc=$DOMAINNAME,dc=local\"/g" \
-	-e "s/userSmbHome=\".*\"/userSmbHome=\""'\\\\'"$SMBDOMAIN"'\\%U'"\"/g" \
-	-e "s/userProfile=\".*\"/userProfile=\""'\\\\'"$SMBDOMAIN"'\\profiles\\%U'"\"/g" \
-	-e "s/userHomeDrive=\".*\"/userHomeDrive=\"H:\"/g" \
-	-e "s/mailDomain=\".*\"/mailDomain=\"$DOMAINNAME.local\"/g" \
+LocalSID=\`sudo net getlocalsid | cut -d':' -f2 | tr -d ' '\`
+sudo sed -i -e "s/SID=\".*\"/SID=\"\$LocalSID\"/g" \\
+	-e "s/sambaDomain=\".*\"/sambaDomain=\"$SMBDOMAIN\"/g" \\
+	-e "s/slaveLDAP=/#slaveLDAP=/g" \\
+	-e "s/masterLDAP=\".*\"/masterLDAP=\"ldap:\/\/$LDAPHOSTNAME.$DOMAINNAME.local\/\"/g" \\
+	-e "s/ldapTLS=\"1\"/ldapTLS=\"0\"/g" \\
+	-e "s/verify=\"require\"/verify=\"none\"/g" \\
+	-e "s/clientcert=\".*\"/clientcert=\"\/etc\/smbldap-tools\/smbldap-tools.$DOMAINNAME.local.pem\"/g" \\
+	-e "s/clientkey=\".*\"/clientkey=\"\/etc\/smbldap-tools\/smbldap-tools.$DOMAINNAME.local.key\"/g" \\
+	-e "s/suffix=\".*\"/suffix=\"dc=$DOMAINNAME,dc=local\"/g" \\
+	-e "s/userSmbHome=\".*\"/userSmbHome=\""'\\\\\\\\'"$SMBDOMAIN"'\\\\%U'"\"/g" \\
+	-e "s/userProfile=\".*\"/userProfile=\""'\\\\\\\\'"$SMBDOMAIN"'\\\\profiles\\\\%U'"\"/g" \\
+	-e "s/userHomeDrive=\".*\"/userHomeDrive=\"H:\"/g" \\
+	-e "s/mailDomain=\".*\"/mailDomain=\"$DOMAINNAME.local\"/g" \\
 	/etc/smbldap-tools/smbldap.conf
-
-sudo sed -i -e "s/slaveDN=\"/#slaveSID=\"/g" \
-	-e "s/slavePw=\"/#slavePw=\"/g" \
-	-e "s/masterDN=\".*\"/masterDN=\"cn=admin,dc=$DOMAINNAME,dc=local\"/g" \
-	-e "s/masterPw=\".*\"/masterPw=\"$SMBROOTPASS\"/g" \
-/etc/smbldap-tools/smbldap_bind.conf
-
+read -s -p "Contraseña de root de SAMBA (ej. 'ausias'): " SMBROOTPASS; echo
+sudo sed -i -e "s/slaveDN=\"/#slaveSID=\"/g" \\
+	-e "s/slavePw=\"/#slavePw=\"/g" \\
+	-e "s/masterDN=\".*\"/masterDN=\"cn=admin,dc=$DOMAINNAME,dc=local\"/g" \\
+	-e "s/masterPw=\".*\"/masterPw=\"\$SMBROOTPASS\"/g" \\
+	/etc/smbldap-tools/smbldap_bind.conf
 sudo smbldap-populate
 sudo service smbd restart
 sudo service nmbd restart
@@ -215,8 +271,8 @@ read -p "Se va a instalar libnss-ldap, lo siguiente que debes escribir en orden 
     ******"
 sudo apt-get install libnss-ldap
 read -p "Ahora se reconfigurará, lo mismo pero añadiendo:
-	debconf: Sí
-	Local crypt: crypt"
+    debconf: Sí
+    Local crypt: crypt"
 sudo dpkg-reconfigure ldap-auth-config
 sudo auth-client-config -t nss -p lac_ldap
 read -p "Selecciona las siguientes:
@@ -231,8 +287,8 @@ sudo service apache2 restart
 read -p "A partir de aquí configura el LDAP mediante el LDAP Manager"
 sudo bash -c "cat <<'EOF' > /var/lib/samba/netlogon/logon.bat
 @echo off
-net time \\\\$LDAPSRVIP /set /yes
-net use z: \\\\$LDAPSRVIP\\datosEnServidor
+net time \\\\\\\\$LDAPSRVIP /set /yes
+net use z: \\\\\\\\$LDAPSRVIP\datosEnServidor
 EOF"
 sudo chown root:root /var/lib/samba/netlogon/logon.bat
 sudo chmod 755 /var/lib/samba/netlogon/logon.bat
@@ -241,17 +297,17 @@ sudo chown nobody:nogroup /datosDeUsuariosLDAP
 sudo chmod 777 /datosDeUsuariosLDAP
 sudo bash -c "cat <<'EOF' > /datosDeUsuariosLDAP/creaCarpetaDeUsuarioLDAP.sh
 #!/bin/bash
-if [ ! -d /datosDeUsuariosLDAP/\$1 ]
+if [ ! -d /datosDeUsuariosLDAP/\\\$1 ]
 then
-    mkdir /datosDeUsuariosLDAP/\$1
-    chown \$1:\$2 /datosDeUsuariosLDAP/\$1
+    mkdir /datosDeUsuariosLDAP/\\\$1
+    chown \\\$1:\\\$2 /datosDeUsuariosLDAP/\\\$1
 fi
 EOF"
 sudo chown nobody:nogroup /datosDeUsuariosLDAP/creaCarpetaDeUsuarioLDAP.sh
 sudo chmod 755 /datosDeUsuariosLDAP/creaCarpetaDeUsuarioLDAP.sh
-sudo sed -e '59 s/\(logon drive =\).*/\1 Z\:/g' \
-	-e '62 s/\(logon script =\).*/\1 logon.bat/g' \
-	-e '78 s/\(logon script =\).*/\1 logon.bat/g' \
+sudo sed -i -e '59 s/\(logon drive =\).*/\1 Z\:/g' \\
+	-e '62 s/\(logon script =\).*/\1 logon.bat/g' \\
+	-e '78 s/\(logon script =\).*/\1 logon.bat/g' \\
 	/etc/samba/smb.conf
 sudo bash -c "cat <<'EOF' >> /etc/samba/smb.conf
 [datosEnServidor]
@@ -269,6 +325,8 @@ nfs: $LANNET/24
 EOF"
 sudo bash -c "echo \"/datosDeUsuariosLDAP $LANNET/24(rw,sync,no_root_squash,no_subtree_check)\" >> /etc/exports"
 sudo service nfs-kernel-server restart
+LDAPEOF
+
 ################################################################################
 
 ## SERVIDOR MYSQL ##############################################################
