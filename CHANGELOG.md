@@ -15,6 +15,7 @@
 ### Fixed
 - Fix relative path used for test to absolute path.
 - Fix missing `-i` option for `sed`.
+
 ## 0.1.1 - 2015-12-03
 ### Added
 - Add `cat <<LDAPEOF` so that it generates the LDAP setup script.
@@ -27,6 +28,7 @@
 
 ### Fixed
 - Renamed 'getip' to 'get_ip' in `$LDAPSRVIP` modification.
+
 ## 0.1.0 - 2015-12-02
 ### Added
 - Add function `get_ip()` to combine Network IP variables with host IP
@@ -53,6 +55,7 @@
 ### Fixed
 - Fix `sed` command to smbldap_bind.conf by adding `sudo`
 - Fix `cat` not working with `sudo` by adding `bash -c`.
+
 ## 0.0.3 - 2015-12-02
 ### Added
 - Add more LDAP variables on the form.
