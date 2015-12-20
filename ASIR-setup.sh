@@ -28,57 +28,135 @@ pideDomZ(){
     # $1 sera de donde es el dominio (DNS, Samba, LDAP) y $2 el nombre ejemplo
     zenity --entry --title="Nombre del dominio $1" --text="Nombre del dominio $1: " --entry-text "ej. '$2'"
 }
+## MENU  ###
+menu() {
+	echo "==============================="
+	echo " JASC - Just A Script Creator "
+	echo "==============================="
+	echo "1) Introducir los parametros de la red a configurar"
+	echo "2) Guardar parametros en un archivo de texto"
+	echo "3) Script para servidor IPTABLES"
+	echo "4) Script para servidor DNS"
+	echo "5) Script para servidor WEB"
+	echo "6) Script para servidor LDAP"
+	echo "7) Script para servidor MYSQL"
+	echo "8) Salir de JASC"
+	echo "--------------------------------"
+	read -p "Seleccione una opción: " OPT
+}
+
+################################################################################
+until [ $OPT -eq 8 ]; do
+	case $OPT in
+## PARAMETROS ##################################################################
+1)
+WANNET=$(pideIPZ "de la red WAN" "10.3.4.0")
+	DMZNET=$(pideIPZ "de la red DMZ" "172.20.100.0")
+	LANNET=$(pideIPZ "de la red LAN" "192.168.100.0")
+
+	IPTABLEHOSTNAME=$(pideHostZ "iptables" "iptables-server")
+	IPTABLESIPWAN=$(pide4octZ "del servidor iptables para eth0" "84")
+	IPTABLESIPWAN=`get_ip $WANNET $IPTABLESIPWAN`
+	IPTABLESIPLAN=$(pide4octZ "del servidor iptables para eth1" "254")
+	IPTABLESIPLAN=`get_ip $LANNET $IPTABLESIPLAN`
+	IPTABLESIPDMZ=$(pide4octZ "del servidor iptables para eth2" "254")
+	IPTABLESIPDMZ=`get_ip $DMZNET $IPTABLESIPDMZ`
+
+	DNSHOSTNAME=$(pideHostZ "DNS" "dns-server")
+	DNSSRVIP=$(pide4octZ "del servidor DNS" "22")
+	DNSSRVIP=`get_ip $DMZNET $DNSSRVIP`
+	DNSDOMAIN=$(pideDomZ "DNS" "pc00.s04")
+
+	APACHEHOSTNAME=$(pideHostZ "Apache2" "apache-server")
+	APACHESRVIP=$(pide4octZ "del servidor Apache2" "49")
+	APACHESRVIP=`get_ip $DMZNET $APACHESRVIP`
+	WARRIORHOSTNAME=$(pideHostZ "Warrior" "warrior-server")
+	WARRIORSRVIP=$(pide4octZ "del servidor Warrior" "50")
+	WARRIORSRVIP=`get_ip $DMZNET $WARRIORSRVIP`
+
+	MYSQLHOSTNAME=$(pideHostZ "MySQL" "mysql-server")
+	MYSQLSRVIP=$(pide4octZ "del servidor MySQL" "3")
+	MYSQLSRVIP=`get_ip $DMZNET $MYSQLSRVIP`
+
+	LDAPHOSTNAME=$(pideHostZ "LDAP" "Sldap-pc00")
+	LDAPSRVIP=$(pide4octZ "del servidor LDAP" "5")
+	LDAPSRVIP=`get_ip $LANNET $LDAPSRVIP`
+	DOMAINNAME=$(pideDomZ "LDAP" "s04-pc00")
+	SMBDOMAIN=$(pideDomZ "Samba" "S04-PC00")
+
+menu
+;;
 ################################################################################
 
-## PARAMETROS ##################################################################
-WANNET=$(pideIPZ "de la red WAN" "10.3.4.0")
-DMZNET=$(pideIPZ "de la red DMZ" "172.20.100.0")
-LANNET=$(pideIPZ "de la red LAN" "192.168.100.0")
+## GUARDAR PARAMETROS ##########################################################
+2)
+cat <<PARAMEOF > parametros.txt
+	WANNET=$WANNET
+	DMZNET=$DMZNET
+	LANNET=$LANNET
 
-IPTABLEHOSTNAME=$(pideHostZ "iptables" "iptables-server")
-IPTABLESIPWAN=$(pide4octZ "del servidor iptables para eth0" "84")
-IPTABLESIPWAN=`get_ip $WANNET $IPTABLESIPWAN`
-IPTABLESIPLAN=$(pide4octZ "del servidor iptables para eth1" "254")
-IPTABLESIPLAN=`get_ip $LANNET $IPTABLESIPLAN`
-IPTABLESIPDMZ=$(pide4octZ "del servidor iptables para eth2" "254")
-IPTABLESIPDMZ=`get_ip $DMZNET $IPTABLESIPDMZ`
+	IPTABLEHOSTNAME=$IPTABLEHOSTNAME
+	IPTABLESIPWAN=$IPTABLESIPWAN
+	IPTABLESIPLAN=$IPTABLESIPLAN
+	IPTABLESIPDMZ=$IPTABLESIPDMZ
 
-DNSHOSTNAME=$(pideHostZ "DNS" "dns-server")
-DNSSRVIP=$(pide4octZ "del servidor DNS" "22")
-DNSSRVIP=`get_ip $DMZNET $DNSSRVIP`
-DNSDOMAIN=$(pideDomZ "DNS" "pc00.s04")
+	DNSHOSTNAME=$DNSHOSTNAME
+	DNSSRVIP=$DNSSRVIP
+	DNSDOMAIN=$DNSDOMAIN
 
-APACHEHOSTNAME=$(pideHostZ "Apache2" "apache-server")
-APACHESRVIP=$(pide4octZ "del servidor Apache2" "49")
-APACHESRVIP=`get_ip $DMZNET $APACHESRVIP`
-WARRIORHOSTNAME=$(pideHostZ "Warrior" "warrior-server")
-WARRIORSRVIP=$(pide4octZ "del servidor Warrior" "50")
-WARRIORSRVIP=`get_ip $DMZNET $WARRIORSRVIP`
+	APACHEHOSTNAME=$APACHEHOSTNAME
+	APACHESRVIP=$APACHESRVIP
+	WARRIORHOSTNAME=$WARRIORHOSTNAME
+	WARRIORSRVIP=$WARRIORSRVIP
 
-MYSQLHOSTNAME=$(pideHostZ "MySQL" "mysql-server")
-MYSQLSRVIP=$(pide4octZ "del servidor MySQL" "3")
-MYSQLSRVIP=`get_ip $DMZNET $MYSQLSRVIP`
+	MYSQLHOSTNAME=$MYSQLHOSTNAME
+	MYSQLSRVIP=$MYSQLSRVIP
 
-LDAPHOSTNAME=$(pideHostZ "LDAP" "Sldap-pc00")
-LDAPSRVIP=$(pide4octZ "del servidor LDAP" "5")
-LDAPSRVIP=`get_ip $LANNET $LDAPSRVIP`
-DOMAINNAME=$(pideDomZ "LDAP" "s04-pc00")
-SMBDOMAIN=$(pideDomZ "Samba" "S04-PC00")
+	LDAPHOSTNAME=$LDAPHOSTNAME
+	LDAPSRVIP=$LDAPSRVIP
+	DOMAINNAME=$DOMAINNAME
+	SMBDOMAIN=$SMBDOMAIN
+PARAMEOF
+echo "Estos son los parametros guardados:"
+echo ""
+cat 'parametros.txt'
+
+menu
+;;
 ################################################################################
 
 ## SERVIDOR IPTABLES ###########################################################
+3)
+cat <<IPTABLESEOF > iptables-server-setup.sh
+En proceso
+IPTABLESEOF
 
+menu
+;;
 ################################################################################
 
 ## SERVIDOR DNS ################################################################
+4)
+cat <<DNSEOF > iptables-server-setup.sh
+En proceso
+DNSEOF
 
+menu
+;;
 ################################################################################
 
 ## SERVIDOR WEB ################################################################
+5)
+cat <<WEBEOF > iptables-server-setup.sh
+En proceso
+WEBEOF
 
+menu
+;;
 ################################################################################
 
 ## SERVIDOR LDAP ###############################################################
+6)
 cat <<LDAPEOF > ldap-server-setup.sh
 #!/bin/bash
 sudo apt-get update
@@ -327,8 +405,28 @@ sudo bash -c "echo \"/datosDeUsuariosLDAP $LANNET/24(rw,sync,no_root_squash,no_s
 sudo service nfs-kernel-server restart
 LDAPEOF
 
+menu
+;;
 ################################################################################
 
 ## SERVIDOR MYSQL ##############################################################
+7)
+cat <<MYSQLEOF > iptables-server-setup.sh
+En proceso
+MYSQLEOF
 
+menu
+;;
 ################################################################################
+
+## CIERRE ######################################################################
+8)
+break
+;;
+################################################################################
+*)
+clear
+menu
+;;
+	esac
+done
